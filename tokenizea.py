@@ -1,101 +1,153 @@
-''' -*- coding: utf-8 -*-
+''' -*- coding: utf-8 -*-'''
 
-text = raw_input("Enter the text to do the preprocessing : ")
-text = "this's a sent tokenize test. this is sent two. is this sent three? sent 4 is cool! Now it's your turn."'''
 #import csv
-import os
 import pandas as pd
 from nltk.tokenize import sent_tokenize, word_tokenize
-from nltk import pos_tag
+from nltk.tag import pos_tag
 from nltk.corpus import stopwords
-import string
-from collections import Counter
+from decimal import Decimal
 
 stop_words = set(stopwords.words('english'))
-text = pd.read_csv('C:\pyproject\python_dataset.csv')
 
-rec_no = int(raw_input("Enter the record number to summarize: "))
-text = text.ix[rec_no,0:6].ctext
-print text
-os.system('PAUSE')
-#Cleaning the data!
 
-# prepare a translation table to remove punctuation
-#table = str.maketrans(str.punctuation, '')
-# remove punctuation from each token
-#text = text.translate(table)
-text = text.replace(string.punctuation,"")
-#tokenize on white space
-text = text.split()
-print "\n\n"
-os.system('PAUSE')
-# convert to lower case
-text = [word.lower() for word in text]
+def sentence_length(m, sentence):
+    n_sentence = len(sentence.split(' '))
+    return round(n_sentence/m, 3)
 
-# remove tokens with numbers in them
-text = [word for word in text if word.isalpha()]
 
-#stringify text so we can use sent_tokenize
-text1 = ' '.join(text)
+def title_feature(sentence, hd):
+    tf = []
+    for h in hd:
+        i = 0
+        if h in sentence.split():
+            tf.append(sentence[i])
+        i += 1
 
-#remove duplicates
-text1 = text1.split(" ")
-for i in range(0, len(text)):
-    text1[i] = "".join(text1[i])
-UniqW = Counter(text1)
-s = " ".join(UniqW.keys())
-text = s
-print('without duplicates: ',text)
-print "\n\n"
-os.system('PAUSE')
-#Sentence tokenize
-sent_tokenize_list = sent_tokenize(text)
+def sentence_pos(pos, sent, end):
+    if(pos==0 or sent == end):  #len_sentence: should be last sentence
+        return 1
+    else:
+        return 0
+            
 
-postag = []
-word_tokenize_list = []
-print(sent_tokenize_list)
-print "\n\n"
-os.system('PAUSE')
+def proper_nouns(sentence):
+    tagged_sent = pos_tag(sentence.split())
+    l = len(sentence.split())
+    proper_nouns = [word for word,pos in tagged_sent if pos == 'NNP']
+    print(proper_nouns)
+    pn = len(proper_nouns)/l
+    return round(pn, 3)
 
-#Word tokenize from the sentences and pos taggins
-for i in sent_tokenize_list :
-   word_tokenize_list.append(word_tokenize(i))
-   postag.append(pos_tag(i))
-print("\n\npostag :", postag)
-print "\n\n"
-os.system('PAUSE')
-print("\n\nThis is the word tokenize list :",word_tokenize_list)
-print "\n\n"
-os.system('PAUSE')
 
-stop_words = (list(stop_words))
-#stop_words1 = []
-stop_words = [str(stop_words[x]) for x in range(len(stop_words))]
-#for i in stop_words:
-    #print i
-    #stop_words1.append(i[0::])
-    #stop_words1.append(''+i+'')
-#stop_words1.append('.')
-print("\n\n\nMy Stop words :",str(stop_words))
-print "\n\n"
-os.system('PAUSE')
+#text = input("Enter the text to do the preprocessing : ")
+text = pd.read_csv(r"C:\pyproject\ourdataset.csv", error_bad_lines=False)
+head = text['Heading']
+rec_no = int(input("Enter the record number to summarize: "))
+text = text.ix[rec_no,0:5].Article 
+text1 = text.split('.')
 
-#print "Stop words",stop_words1
-#Removing stop words
-#filtered_sentence = [w for w in word_tokenize_list if not w in stop_words]
+
+#Stopword removal
+stop_words = set(stopwords.words('english'))
+word_tokens = word_tokenize(text)
+filtered_sentence = [w for w in word_tokens if not w in stop_words]
 filtered_sentence = []
-print "The removed words are :"
-for a in word_tokenize_list:
-    for w in a:
-		if w not in stop_words:
- 	       #print "Inside if"
-			filtered_sentence.append(w)
- 	       #print(w)
-		else:
-			print w," ",
-print "\n\n"
-os.system('PAUSE')
-#final pre-processed data
-print("\n\n\nThe filtered sentence : ",filtered_sentence)
-#print "\n\n"
-#os.system('PAUSE')
+for w in word_tokens:
+    if w not in stop_words:
+        filtered_sentence.append(w)
+filtered_sentence = ' '.join(filtered_sentence)
+    
+#print('\n\n')
+#print('\n\nAfter stopword removal, text looks like this: \n\n', filtered_sentence)
+
+#Sentence segmentation
+sent = filtered_sentence.split('.')
+print('\n\n')
+
+#create feature matrix using empty dataframe
+feature_matrix = pd.DataFrame()
+
+#Title Feature
+len_head = len(head)
+tf = []
+hd = head[rec_no].split(' ')
+for i in range(0, len(sent)):
+    title_feature(sent[i], hd)
+
+
+    
+#Sentence length
+l = []
+sl = []
+for i in range(0, len(sent)):     #to find max length sentence
+    l.append(len(sent[i].split()))
+max_length = max(l)
+for i in range(0, len(sent)):
+    sl.append(sentence_length(max_length, sent[i]))
+
+
+
+#Sentence Position
+sp = []
+r = sent[::-1]
+for i in range(0, len(sent)):
+    sp.append(sentence_pos(i, sent[i], r[0]))
+
+    
+#Proper Nouns
+list_pn = []
+for i in range(0, len(sent)):
+    list_pn.append(proper_nouns(sent[i]))
+
+feature_matrix = pd.DataFrame({'Sentence Length': sl, 'Sentence Position': sp, 'Proper Nouns': list_pn})
+print(feature_matrix)
+
+
+#classification
+sl_value = []
+avg = sum(sl)/float(len(sl))
+mini = min(sl)
+maxi = max(sl)
+for i in range(0, len(sl)):
+    if (sl[i] <= avg and sl[i] >= mini):
+        sl_value.append('l')
+    elif (sl[i] >= avg and sl[i] <= maxi):
+        sl_value.append('h')
+
+sp_value = []
+for i in sp:
+    if sp[i] == 1:
+        sp_value.append('h')
+    else:
+        sp_value.append('l')
+
+pn_value = []
+avg = sum(list_pn)/float(len(list_pn))
+mini = min(list_pn)
+maxi = max(list_pn)
+for i in range(0, len(list_pn)):
+    if (list_pn[i] <= avg and list_pn[i] >= mini):
+        pn_value.append('l')
+    elif (list_pn[i] >= avg and list_pn[i] <= maxi):
+        pn_value.append('h')
+
+
+#class
+class_list = []
+for i in range(0, len(sent)):
+    if ((sl_value[i] == 'h' and sp_value[i] == 'h' and pn_value[i] == 'h') or (sl_value[i] == 'h' and pn_value[i] == 'h')):
+        class_list.append('I')
+    else:
+        class_list.append('NI')
+
+
+#summary
+summary = []
+summary.append(text1[1])
+for i in range(2, len(text1)-1):
+    if (class_list[i] == 'I'):
+        summary.append(text1[i])
+summary.append(text1[-2])
+final_sum = '. '.join(summary)
+print('\n\n', final_sum)
+
